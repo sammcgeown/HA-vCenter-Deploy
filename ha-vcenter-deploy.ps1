@@ -137,7 +137,12 @@ if($deployActive) {
 
 	
 	Write-Log "Creating DNS Record"
-	#Add-DnsServerResourceRecordA -Name $podConfig.active.name -ZoneName $podConfig.target.network.domain -AllowUpdateAny -IPv4Address $podConfig.active.ip -ComputerName $podConfig.target.network.dns -CreatePtr -ErrorAction SilentlyContinue
+	$existingRecord = Get-DnsServerResourceRecord -Name $podConfig.active.hostname -ZoneName $podConfig.target.network.domain -ComputerName $podConfig.target.network.dns
+	if($existingRecord) {
+		Write-Log "Record exists - skipping" -Warning
+	} else {
+		Add-DnsServerResourceRecordA -Name $podConfig.active.hostname -ZoneName $podConfig.target.network.domain -AllowUpdateAny -IPv4Address $podConfig.active.ip -ComputerName $podConfig.target.network.dns -CreatePtr -ErrorAction SilentlyContinue	
+	}
 
 	Write-Log "Deploying VCSA"
 	$config = (Get-Content -Raw "$($VCSAInstaller)\vcsa-cli-installer\templates\install\embedded_vCSA_on_VC.json") | convertfrom-json
@@ -276,11 +281,7 @@ if($clonePassiveVM) {
 
 	$pVCSA = Get-VCSAConnection -vcsaName $podConfig.target.server -vcsaUser $podConfig.target.user -vcsaPassword $podConfig.target.password
 	$pVMHosts = Get-VMhost -Location $podConfig.target.cluster
-	if($pVMHosts.count -gt 1) {
-		$pVMHost = Get-Random (Get-VMhost -Location $podConfig.target.cluster)
-	} else {
-		$pVMHost = $pVMHosts
-	}
+	if($pVMHosts.count -gt 1) { $pVMHost = Get-Random (Get-VMhost -Location $podConfig.target.cluster) } else { $pVMHost = $pVMHosts }
 	$pFolder = Get-PodFolder -vcsaConnection $pVCSA -folderPath $podConfig.target.folder
 
 	$activeVM = Get-VM -Name $podConfig.active.name
@@ -297,12 +298,10 @@ if($clonePassiveVM) {
 	$passiveVM = New-VM -Name $podConfig.cluster."passive-name" -VM $activeVM -OSCustomizationSpec $CloneSpecName -VMhost $pVMHost -Server $pVCSA -Location $pFolder | Out-File -Append -LiteralPath $verboseLogFile
 	# Get the VM
 	$passiveVM = Get-VM -Name $podConfig.cluster."passive-name"
-	# Start the VM
-	$passiveVM | Start-VM | Out-File -Append -LiteralPath $verboseLogFile
-	# Ensure the network adapters are connected
-	$passiveVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false | Out-File -Append -LiteralPath $verboseLogFile
 	Write-Log "Waiting for VMware Tools"
-	$passiveVM | Wait-Tools | Out-File -Append -LiteralPath $verboseLogFile
+	$passiveVM | Start-VM | Wait-Tools | Out-File -Append -LiteralPath $verboseLogFile
+	# Ensure the network adapters are connected
+	#$passiveVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false | Out-File -Append -LiteralPath $verboseLogFile
 	Close-VCSAConnection
 }
 
@@ -310,7 +309,8 @@ if($cloneWitnessVM) {
 	Write-Log "#### Cloning VCSA for Witness Node ####"
 
 	$pVCSA = Get-VCSAConnection -vcsaName $podConfig.target.server -vcsaUser $podConfig.target.user -vcsaPassword $podConfig.target.password
-	$pVMHost = Get-Random (Get-VMhost -Location $podConfig.target.cluster)
+	$pVMHosts = Get-VMhost -Location $podConfig.target.cluster
+	if($pVMHosts.count -gt 1) { $pVMHost = Get-Random (Get-VMhost -Location $podConfig.target.cluster) } else { $pVMHost = $pVMHosts }
 	$pFolder = Get-PodFolder -vcsaConnection $pVCSA -folderPath $podConfig.target.folder
 
 	$activeVM = Get-VM -Name $podConfig.active.name
@@ -323,14 +323,14 @@ if($cloneWitnessVM) {
 	New-OSCustomizationNicMapping -OSCustomizationSpec $CloneSpecName -IpMode UseStaticIP -IpAddress $podConfig.cluster."witness-ip" -SubnetMask $podConfig.cluster."ha-mask" -DefaultGateway $podConfig.target.network.gateway |  Out-File -Append -LiteralPath $verboseLogFile
 
 	Write-Log "Cloning Active VCSA to Witness VCSA"
-	$witnessVM = New-VM -Name $podConfig.cluster."witness-name" -VM $activeVM -OSCustomizationSpec $CloneSpecName -VMhost $pVMHost -Server $pVCSA -Location $pFolder | Start-VM | Out-File -Append -LiteralPath $verboseLogFile
-	
-	# Ensure the network adapters are connected
-	$witnessVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false
-	
+	$witnessVM = New-VM -Name $podConfig.cluster."witness-name" -VM $activeVM -OSCustomizationSpec $CloneSpecName -VMhost $pVMHost -Server $pVCSA -Location $pFolder | Out-File -Append -LiteralPath $verboseLogFile
+	# Get the VM
+	$witnessVM = Get-VM -Name $podConfig.cluster."witness-name"
+	# Start the VM
 	Write-Log "Waiting for VMware Tools"
-	$witnessVM | Wait-Tools
-
+	$witnessVM | Start-VM | Wait-Tools | Out-File -Append -LiteralPath $verboseLogFile
+	# Ensure the network adapters are connected
+	#$witnessVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false | Out-File -Append -LiteralPath $verboseLogFile
 	Close-VCSAConnection
 }
 
