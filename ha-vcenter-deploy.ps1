@@ -153,7 +153,7 @@ if($deployActive) {
 	$config.'new.vcsa'.appliance.'thin.disk.mode' = $true
 	$config.'new.vcsa'.appliance.'deployment.option' = $podConfig.active.deploymentSize
 	$config.'new.vcsa'.appliance.name = $podConfig.active.name
-	$config.'new.vcsa'.network.'system.name' = $podConfig.active.hostname
+	$config.'new.vcsa'.network.'system.name' = "$($podConfig.active.hostname).$($podConfig.target.network.domain)"
 	$config.'new.vcsa'.network.'ip.family' = "ipv4"
 	$config.'new.vcsa'.network.mode = "static"
 	$config.'new.vcsa'.network.ip = $podConfig.active.ip
@@ -294,7 +294,8 @@ if($clonePassiveVM) {
 	New-OSCustomizationNicMapping -OSCustomizationSpec $CloneSpecName -IpMode UseStaticIP -IpAddress $podConfig.cluster."passive-ip" -SubnetMask $podConfig.cluster."ha-mask" -DefaultGateway $podConfig.target.network.gateway |  Out-File -Append -LiteralPath $verboseLogFile
 
 	Write-Log "Cloning Active VCSA to Passive VCSA"
-	$passiveVM = New-VM -Name $podConfig.cluster."passive-name" -VM $activeVM -OSCustomizationSpec $CloneSpecName -VMhost $pVMHost -Server $pVCSA -Location $pFolder | Start-VM | Out-File -Append -LiteralPath $verboseLogFile
+	$passiveVM = New-VM -Name $podConfig.cluster."passive-name" -VM $activeVM -OSCustomizationSpec $CloneSpecName -VMhost $pVMHost -Server $pVCSA -Location $pFolder | Out-File -Append -LiteralPath $verboseLogFile
+	$passiveVM | Start-VM | Out-File -Append -LiteralPath $verboseLogFile
 	
 	# Ensure the network adapters are connected
 	$passiveVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false
