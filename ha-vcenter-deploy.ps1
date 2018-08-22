@@ -54,7 +54,7 @@ Function Write-Log {
 		[switch]$Warning,
 		[switch]$Info
 	)
-	$timeStamp = Get-Date -Format "dd-MM-yyyy hh:mm:ss"
+	$timeStamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
 	Write-Host -NoNewline -ForegroundColor White "[$timestamp]"
 	if($Warning){
 		Write-Host -ForegroundColor Yellow " WARNING: $message"
@@ -137,7 +137,7 @@ if($deployActive) {
 
 	
 	Write-Log "Creating DNS Record"
-	Add-DnsServerResourceRecordA -Name $podConfig.active.name -ZoneName $podConfig.target.network.domain -AllowUpdateAny -IPv4Address $podConfig.active.ip -ComputerName "192.168.1.20" -CreatePtr -ErrorAction SilentlyContinue
+	#Add-DnsServerResourceRecordA -Name $podConfig.active.name -ZoneName $podConfig.target.network.domain -AllowUpdateAny -IPv4Address $podConfig.active.ip -ComputerName $podConfig.target.network.dns -CreatePtr -ErrorAction SilentlyContinue
 
 	Write-Log "Deploying VCSA"
 	$config = (Get-Content -Raw "$($VCSAInstaller)\vcsa-cli-installer\templates\install\embedded_vCSA_on_VC.json") | convertfrom-json
@@ -275,7 +275,12 @@ if($clonePassiveVM) {
 	Write-Log "#### Cloning VCSA for Passive Node ####"
 
 	$pVCSA = Get-VCSAConnection -vcsaName $podConfig.target.server -vcsaUser $podConfig.target.user -vcsaPassword $podConfig.target.password
-	$pVMHost = Get-Random (Get-VMhost -Location $podConfig.target.cluster)
+	$pVMHosts = Get-VMhost -Location $podConfig.target.cluster
+	if($pVMHosts.count -gt 1) {
+		$pVMHost = Get-Random (Get-VMhost -Location $podConfig.target.cluster)
+	} else {
+		$pVMHost = $pVMHosts
+	}
 	$pFolder = Get-PodFolder -vcsaConnection $pVCSA -folderPath $podConfig.target.folder
 
 	$activeVM = Get-VM -Name $podConfig.active.name
