@@ -295,14 +295,14 @@ if($clonePassiveVM) {
 
 	Write-Log "Cloning Active VCSA to Passive VCSA"
 	$passiveVM = New-VM -Name $podConfig.cluster."passive-name" -VM $activeVM -OSCustomizationSpec $CloneSpecName -VMhost $pVMHost -Server $pVCSA -Location $pFolder | Out-File -Append -LiteralPath $verboseLogFile
+	# Get the VM
+	$passiveVM = Get-VM -Name $podConfig.cluster."passive-name"
+	# Start the VM
 	$passiveVM | Start-VM | Out-File -Append -LiteralPath $verboseLogFile
-	
 	# Ensure the network adapters are connected
-	$passiveVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false
-
+	$passiveVM | Get-NetworkAdapter | Set-NetworkAdapter -Connected:$true -Confirm:$false | Out-File -Append -LiteralPath $verboseLogFile
 	Write-Log "Waiting for VMware Tools"
-	$passiveVM | Wait-Tools
-
+	$passiveVM | Wait-Tools | Out-File -Append -LiteralPath $verboseLogFile
 	Close-VCSAConnection
 }
 
