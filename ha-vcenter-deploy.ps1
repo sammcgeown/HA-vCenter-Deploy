@@ -345,8 +345,7 @@ if($configureVCHA) {
 	$ClusterConfigSpec.WitnessIp = $podConfig.cluster."witness-ip"
 	$ConfigureTask = $ClusterConfig.configureVcha_task($ClusterConfigSpec)
 	Write-Log "Waiting for cluster configuration task"
-	Start-Sleep -Seconds 30
-	
+	Get-Task "configureVcha_Task" | Wait-Task
 	Close-VCSAConnection -vcsaName $podConfig.active.ip
 }
 
