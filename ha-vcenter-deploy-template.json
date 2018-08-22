@@ -28,7 +28,7 @@
 		"name": "ha-vc-active",
 		"ip": "10.0.11.10",
 		"ha-ip": "172.16.1.1",
-		"hostname": "ha-vc.definit.local",
+		"hostname": "ha-vc",
 		"rootPassword": "VMware1!",
 		"sso": {
 			"domain": "vsphere.local",
